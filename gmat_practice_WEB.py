@@ -76,6 +76,14 @@ if 'section_type' not in st.session_state:
 if 'user_answer_input' not in st.session_state:
     st.session_state.user_answer_input = ""
 
+# --- Add new state for multiplication options ---
+if 'mult_min' not in st.session_state:
+    st.session_state.mult_min = 2
+if 'mult_max' not in st.session_state:
+    st.session_state.mult_max = 15
+if 'mult_exclude_squares' not in st.session_state:
+    st.session_state.mult_exclude_squares = False
+
 
 # --- 3. QUESTION GENERATOR FUNCTIONS ---
 def new_question(section_id):
@@ -86,8 +94,29 @@ def new_question(section_id):
 
     match section_id:
         case 1:
-            a = random.randint(2,15)
-            b = random.randint(2,15)
+            # --- Read multiplication options from session state ---
+            min_val = st.session_state.mult_min
+            max_val = st.session_state.mult_max
+            exclude_squares = st.session_state.mult_exclude_squares
+
+            # Validate range
+            if min_val > max_val:
+                st.error("Min number cannot be greater than max number. Fix in sidebar.")
+                st.session_state.question = "Error: Fix options in sidebar"
+                st.session_state.answer = "" # Set a dummy answer
+                return
+
+            a = random.randint(min_val, max_val)
+            b = random.randint(min_val, max_val)
+            
+            # Handle "exclude squares" logic
+            if exclude_squares:
+                # If the range is just one number (e.g., 5 to 5), we can't exclude squares.
+                # So we only run the loop if the range is greater than 0.
+                if min_val != max_val:
+                    while a == b:
+                        b = random.randint(min_val, max_val)
+            
             st.session_state.question = f'{a} x {b} = ?'
             st.session_state.answer = str(a * b)
         case 2:
@@ -210,8 +239,15 @@ def handle_submission():
 
 # --- 5. UI LAYOUT ---
 
+# --- Add a callback for when multiplication options change ---
+def on_mult_option_change():
+    # We only need to generate a new question if we are *currently* in section 1
+    if st.session_state.current_section == 1:
+        new_question(1)
+        st.session_state.user_answer_input = "" # Clear text box
+
 st.set_page_config(layout="wide")
-st.title("🧠 GMAT Mental Math Practice")
+st.title("🧠 GMAT Quant Practice")
 
 # --- Sidebar for Navigation ---
 st.sidebar.title("Menu")
@@ -225,6 +261,31 @@ section_name = st.sidebar.radio(
 
 # Find the section ID from the name
 section_id = [k for k, v in ALL_SECTION_NAMES.items() if v == section_name][0]
+
+# --- NEW: Show multiplication options if section 1 is selected ---
+if section_id == 1:
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("Multiplication Options")
+    # Bind widgets to session state using key= and trigger callback
+    st.sidebar.number_input(
+        "Min Number", 
+        min_value=2, 
+        max_value=99, 
+        key="mult_min", 
+        on_change=on_mult_option_change
+    )
+    st.sidebar.number_input(
+        "Max Number", 
+        min_value=2, 
+        max_value=99, 
+        key="mult_max", 
+        on_change=on_mult_option_change
+    )
+    st.sidebar.checkbox(
+        "Exclude Squares?", 
+        key="mult_exclude_squares", 
+        on_change=on_mult_option_change
+    )
 
 # --- Main Page Logic ---
 if st.session_state.current_section != section_id:
@@ -286,7 +347,12 @@ if st.session_state.current_section not in [14] or st.session_state.practice_sta
         if st.session_state.current_section in [14, 15] and not st.session_state.combined_sections:
             st.warning("Please go back and configure your combined practice (Section 14).")
         else:
-            new_question(st.session_state.current_section)
+            # This is the first run for the selected section
+            if st.session_state.current_section:
+                 new_question(st.session_state.current_section)
+            else:
+                # Failsafe, default to section 1
+                 new_question(1)
             st.rerun()
 
     # --- NO MORE ERROR MESSAGE OR BUTTON LOGIC. IT'S ALL IN THE TOAST! ---
