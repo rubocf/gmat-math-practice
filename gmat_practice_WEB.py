@@ -512,7 +512,7 @@ def on_prime_mode_change():
 
 
 st.set_page_config(layout="wide")
-st.title("🧠 GMAT Mental Math Practice")
+st.title("🧠 GMATttt Mental Math Practice")
 
 # --- Sidebar for Navigation ---
 st.sidebar.title("Menu")
